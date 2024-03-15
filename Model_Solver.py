@@ -73,6 +73,7 @@ def split_int(n):
     d = math.floor((n-a-b)/2)
     return [d,c,b,a]
 
+
 def demander(J,S,L):
     scenarios = split_int(S)
     x = np.array([])
@@ -88,8 +89,6 @@ def demander(J,S,L):
             x = np.append(x, S4_creator(intervals,J))
     d = x.reshape(S,J,L)
     return d
-
-
 
 def max_supply (I,J,L,S,d):
     n = I*L
@@ -292,35 +291,31 @@ scenarios = [3,4,5]
 commodities = [1,2]
 alpha = 0.95
 
-data = data_generator(origins, destinations, scenarios, commodities)
-table = generate_table(data, origins, destinations, scenarios, commodities, alpha)
+#data = data_generator(origins, destinations, scenarios, commodities)
+#table = generate_table(data, origins, destinations, scenarios, commodities, alpha)
 
-print(table)
-
-
+#print(table)
 
 ###
 ### Figures
 ###
 
-
-
 # Set parameters
-I = 5
-J = 10
-S = 30
+I = 2
+J = 3
+S = 25
 L = 2
-alpha = 0.9
+alpha = 0.95
 
 def actual_cost(S, setup_cost, shipment_cost, handling_cost, y, x, z):
-    scenario = np.random.randint(0,S-1)
-    cost = (gp.quicksum(setup_cost[j, i]*y[i, j] for i in range(I) for j in range(J))+
-                     gp.quicksum(shipment_cost[l, j, i]*x[scenario,l, i, j] for l in range (L) for i in range(I) for j in range(J))+
-                     gp.quicksum(handling_cost[l,i]*z[scenario, i, l] for l in range(L) for i in range(I)))
+    scenario = np.random.randint(0,S)
+    cost = (gp.quicksum(setup_cost[j, i]*y[i, j] for i in range(I+1) for j in range(J))+
+                     gp.quicksum(shipment_cost[l, j, i]*x[scenario,l, i, j] for l in range (L) for i in range(I+1) for j in range(J))+
+                     gp.quicksum(handling_cost[l,i]*z[scenario, i, l] for l in range(L) for i in range(I+1)))
     return cost
 
 list = []
-for i in range(100):
+for i in range(50):
     # Generate data
     unit_penalty = unitary_penalty(I, J, L)
 
@@ -346,7 +341,12 @@ for i in range(100):
 import matplotlib.pyplot as plt
 y = [i[0].getValue() for i in list]
 x = [i[1] for i in list]
+
+x_line = np.arange(min(x), max(x), 0.1)
+y_line = x_line
+
 plt.scatter(x, y, label = "Actual cost")
+plt.plot(x_line, y_line, label = "y = x")
 plt.xlabel('Objective value')
 plt.ylabel('Actual cost')
 plt.title(f'Actual cost vs Objective value, alpha = {alpha}, I = {I}, J = {J} S = {S}')
