@@ -296,3 +296,59 @@ data = data_generator(origins, destinations, scenarios, commodities)
 table = generate_table(data, origins, destinations, scenarios, commodities, alpha)
 
 print(table)
+
+
+
+###
+### Figures
+###
+
+
+
+# Set parameters
+I = 5
+J = 10
+S = 30
+L = 2
+alpha = 0.9
+
+def actual_cost(S, setup_cost, shipment_cost, handling_cost, y, x, z):
+    scenario = np.random.randint(0,S-1)
+    cost = (gp.quicksum(setup_cost[j, i]*y[i, j] for i in range(I) for j in range(J))+
+                     gp.quicksum(shipment_cost[l, j, i]*x[scenario,l, i, j] for l in range (L) for i in range(I) for j in range(J))+
+                     gp.quicksum(handling_cost[l,i]*z[scenario, i, l] for l in range(L) for i in range(I)))
+    return cost
+
+list = []
+for i in range(100):
+    # Generate data
+    unit_penalty = unitary_penalty(I, J, L)
+
+    shipment_cost = unit_shipment_cost(I, J, L, unit_penalty)
+
+    handling_cost = fixed_handling_cost(I, L)
+
+    setup_cost = set_up_cost(I, J, L)
+
+    demand = demander(J, S, L)
+
+    supply_cap = max_supply(I, J, L, S, demand)
+
+    # optimize model
+    solution = optimal_cvar(shipment_cost, handling_cost, setup_cost, demand, supply_cap, alpha, S, I, J, L)
+    if solution[0].status != GRB.OPTIMAL:
+        print("Model not optimal")
+        break
+    list.append((actual_cost(S, setup_cost, shipment_cost, handling_cost, solution[1], solution[2], solution[3]), solution[0].objVal))
+
+
+#plot the data from the list where the first element is the actual cost and the second element is the objective value
+import matplotlib.pyplot as plt
+y = [i[0].getValue() for i in list]
+x = [i[1] for i in list]
+plt.scatter(x, y, label = "Actual cost")
+plt.xlabel('Objective value')
+plt.ylabel('Actual cost')
+plt.title(f'Actual cost vs Objective value, alpha = {alpha}, I = {I}, J = {J} S = {S}')
+plt.show()
+
