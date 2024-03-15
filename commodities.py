@@ -241,14 +241,9 @@ def optimal_cvar (shipment_cost,handling_cost,setup_cost,demand,supply_cap,alpha
 #print(f'Activated links: {solution[1]}')
 #print(f'Flows: {solution[2]}')
 
-origins = [2,4]
-destinations = [5,6]
-scenarios = [3,4,5]
-commodities = [1,2]
-alpha = 0.95
-
 def data_generator (origins, destinations, scenarios, commodities):
-    master_list = np.array([])
+    df = pd.DataFrame(
+        columns=['I', 'J', 'S', 'L', 'Shipment Cost', 'Handling Cost', 'Setup Cost', 'Demand', 'Supply Cap'])
     for I in origins:
         for J in destinations:
             for S in scenarios:
@@ -259,28 +254,30 @@ def data_generator (origins, destinations, scenarios, commodities):
                         shipment_cost = unit_shipment_cost(I,J,L,unit_penalty)
                         handling_cost = fixed_handling_cost(I,L)
                         setup_cost = set_up_cost(I,J,L)
-                        demand = demander(J,S,L)
+                        demand = demander(J, S, L)
                         supply_cap = max_supply(I,J,L,S,demand)
-    return(dataframe)
 
-data = data_generator(origins, destinations, scenarios, commodities)
+                        # Append the data to the dataframe
+                        df = df._append({'I': I, 'J': J, 'S': S, 'L': L, 'Shipment Cost': [shipment_cost],
+                                        'Handling Cost': [handling_cost], 'Setup Cost': [setup_cost],
+                                        'Demand': [demand], 'Supply Cap': [supply_cap]}, ignore_index=True)
+    return(df)
 
-print(data[(data['I'] == 2) & (data['J'] == 5) & (data['S'] == 3) & (data['L'] == 1)]['unit_penalty'])
-
-
-def generate_table (origins, destinations, scenarios, commodities, alpha):
+def generate_table (df, origins, destinations, scenarios, commodities, alpha):
     table = np.array([])
     for I in origins:
         for J in destinations:
             for S in scenarios:
                 for L in commodities:
                     if I < J:
-                        unit_penalty = unitary_penalty(I, J, L)
-                        shipment_cost = unit_shipment_cost(I, J, L, unit_penalty)
-                        handling_cost = fixed_handling_cost(I, L)
-                        setup_cost = set_up_cost(I, J, L)
-                        demand = demander(J, S, L)
-                        supply_cap = max_supply(I, J, L, S, demand)
+                        row = df[(df['I'] == I) & (df['J'] == J) & (df['S'] == S) & (df['L'] == L)]
+
+                        shipment_cost = np.array(row['Shipment Cost'].values[0]).reshape(L,J,I+1)
+                        handling_cost = np.array(row['Handling Cost'].values[0]).reshape(L,I+1)
+                        setup_cost = np.array(row['Setup Cost'].values[0]).reshape(J,I+1)
+                        demand = np.array(row['Demand'].values[0]).reshape(S,J,L)
+                        supply_cap = np.array(row['Supply Cap'].values[0]).reshape(S,L,I+1)
+
                         #Optimize model
                         solution = optimal_cvar(shipment_cost, handling_cost, setup_cost, demand, supply_cap, alpha, S, I, J, L)
                         table = np.append(table, solution[0].ObjVal)
@@ -288,3 +285,14 @@ def generate_table (origins, destinations, scenarios, commodities, alpha):
                         table = np.append(table, solution[0].Runtime)
     table = table.reshape(len(commodities), len(origins) * len(destinations) * len(scenarios), 3)
     return(table)
+
+origins = [2,4]
+destinations = [5,6]
+scenarios = [3,4,5]
+commodities = [1,2]
+alpha = 0.95
+
+data = data_generator(origins, destinations, scenarios, commodities)
+table = generate_table(data, origins, destinations, scenarios, commodities, alpha)
+
+print(table)
