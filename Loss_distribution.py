@@ -7,9 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 params = {
-"WLSACCESSID": '730eb8a4-9f5d-46f4-a00a-5a5a124b5cfc',
-"WLSSECRET": 'fb659f16-0ba2-4a5d-8740-c85a5ba53c04',
-"LICENSEID": 2482509,
+
 }
 env = gp.Env(params=params)
 
