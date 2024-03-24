@@ -1,0 +1,78 @@
+def optimize_given_y(shipment_cost, handling_cost, setup_cost, demand, supply_cap, alpha, S, I, J, L, y_given):
+    model = gp.Model("recourse", env=env)
+
+    # Create variables
+    # VaR
+    eta = model.addVar(name="VaR", vtype=GRB.CONTINUOUS)
+
+    # PSI
+    psi = model.addMVar(shape=(S,), name="psi", vtype=GRB.CONTINUOUS)
+
+    # Y_ij - Is link (i,j) used in the realization
+    y = model.addVars([(i, j) for i in range(I + 1) for j in range(J)], vtype=GRB.BINARY, name="y")
+
+    # X_ijs - Flow on a link under scenario s
+    x = model.addMVar((S, L, I + 1, J), vtype=GRB.CONTINUOUS, name="x")
+
+    # Z_is - Is supply node activated under scenario s
+    z = model.addMVar((S, I + 1, L), vtype=GRB.BINARY, name="z")
+
+    # Define the objective function
+    model.setObjective(eta + (1 / (1 - alpha)) * gp.quicksum(psi[s] / S for s in range(S)), GRB.MINIMIZE)
+
+    # Define constraints for psi
+    for s in range(S):
+        model.addConstr(psi[s] >= gp.quicksum(setup_cost[j, i] * y[i, j] for i in range(I + 1) for j in range(J)) +
+                        gp.quicksum(shipment_cost[l, j, i] * x[s, l, i, j] for l in range(L) for i in range(I + 1) for j in range(J)) +
+                        gp.quicksum(handling_cost[l, i] * z[s, i, l] for l in range(L) for i in range(I + 1)) - eta,
+                        name=f'psi {s}')
+
+    # Define constraints ensuring psi greater than or equal to 0 for all s in S
+    for s in range(S):
+        model.addConstr(psi[s] >= 0, name=f'psi_positive {s}')
+
+    # Use given y values
+    for i in range(I + 1):
+        for j in range(J):
+            y[i, j] = y_given[i, j]
+
+    # Define constraints ensuring only activated links are used for each scenario s in S
+    for s in range(S):
+        for j in range(J):
+            for i in range(I + 1):
+                for l in range(L):
+                    model.addConstr(x[s, l, i, j] <= demand[s, j, l] * y[i, j], name=f'link_activation {s}_{j}_{i}_{l}')
+
+    # Define constraints ensuring demand satisfaction for each scenario s in S
+    for s in range(S):
+        for j in range(J):
+            for l in range(L):
+                model.addConstr(gp.quicksum(x[s, l, i, j] for i in range(I + 1)) >= demand[s, j, l],
+                                name=f'demand_satisfaction {s}_{j}_{l}')
+
+    # Define constraints ensuring the supply cap in each origin is not exceeded for each scenario s in S
+    for s in range(S):
+        for i in range(I):
+            model.addConstr(gp.quicksum(x[s, l, i, j] for j in range(J)) <= supply_cap[s, l, i] * z[s, i, l],
+                            name=f'supply_cap {s}_{i}')
+
+    # Define constraints ensuring positive flow for each scenario s in S
+    for s in range(S):
+        for j in range(J):
+            for i in range(I + 1):
+                for l in range(L):
+                    model.addConstr(x[s, l, i, j] >= 0, name=f'positive_flow {s}_{j}_{i}_{l}')
+
+    # Define constraints ensuring overall capacity in origins must be enough to supply the demand for each scenario s in S
+    for s in range(S):
+        for l in range(L):
+            model.addConstr(gp.quicksum(supply_cap[s, l, i] * z[s, i, l] for i in range(I + 1)) >=
+                            gp.quicksum(demand[s, j, l] for j in range(J)),
+                            name=f'overall_capacity {s}_{l}')
+
+    # Solve problem
+    model.Params.outputFlag = 0
+    model.Params.LogToConsole = 0
+    model.optimize()
+
+    return [model, y, x.X, z.X]
