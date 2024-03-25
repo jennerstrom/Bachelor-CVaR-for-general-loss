@@ -1,9 +1,5 @@
-def optimize_given_y(shipment_cost, handling_cost, setup_cost, demand, supply_cap, alpha, S, I, J, L, y_given):
+def optimize_given_y(shipment_cost, handling_cost, demand, supply_cap, S, I, J, L, y_given):
     model = gp.Model("recourse", env=env)
-
-    # Create variables
-    # VaR
-    eta = model.addVar(name="VaR", vtype=GRB.CONTINUOUS)
 
     # PSI
     psi = model.addMVar(shape=(S,), name="psi", vtype=GRB.CONTINUOUS)
@@ -18,13 +14,12 @@ def optimize_given_y(shipment_cost, handling_cost, setup_cost, demand, supply_ca
     z = model.addMVar((S, I + 1, L), vtype=GRB.BINARY, name="z")
 
     # Define the objective function
-    model.setObjective(eta + (1 / (1 - alpha)) * gp.quicksum(psi[s] / S for s in range(S)), GRB.MINIMIZE)
+    model.setObjective(gp.quicksum(psi[s] / S for s in range(S)), GRB.MINIMIZE)
 
     # Define constraints for psi
     for s in range(S):
-        model.addConstr(psi[s] >= gp.quicksum(setup_cost[j, i] * y[i, j] for i in range(I + 1) for j in range(J)) +
-                        gp.quicksum(shipment_cost[l, j, i] * x[s, l, i, j] for l in range(L) for i in range(I + 1) for j in range(J)) +
-                        gp.quicksum(handling_cost[l, i] * z[s, i, l] for l in range(L) for i in range(I + 1)) - eta,
+        model.addConstr(psi[s] >=gp.quicksum(shipment_cost[l, j, i] * x[s, l, i, j] for l in range(L) for i in range(I + 1) for j in range(J)) +
+                        gp.quicksum(handling_cost[l, i] * z[s, i, l] for l in range(L) for i in range(I + 1)),
                         name=f'psi {s}')
 
     # Define constraints ensuring psi greater than or equal to 0 for all s in S
