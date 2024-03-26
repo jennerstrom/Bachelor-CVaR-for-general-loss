@@ -199,7 +199,8 @@ def optimal_cvar (shipment_cost,handling_cost,setup_cost,demand,supply_cap,alpha
     # Ensures that the supply cap in each origin is not exceeded for all s in S
     for s in range(S):
       for i in range(I):
-        model.addConstr((gp.quicksum(x[s, l, i, j] for j in range(J)) <= supply_cap[s, l, i]*z[s, i, l]), name = f'supply_cap {s,i}')
+          for l in range(L):
+            model.addConstr((gp.quicksum(x[s, l, i, j] for j in range(J)) <= supply_cap[s, l, i]*z[s, i, l]), name = f'supply_cap {s,i}')
 
     # Ensures positive flow for all s in S
     for s in range(S):
